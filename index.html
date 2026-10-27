@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173d35">
+  <title>十字路の交通信号シミュレーション｜完成版</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css?v=20261027">
+  <!-- 本体と追加機能は、同じCDN・同じバージョンに固定する。 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="header">
+    <span class="brand-icon" aria-hidden="true">╋</span>
+    <div><p class="eyebrow">交通のしくみを、立体で観察する</p><h1>十字路シミュレーション</h1></div>
+    <span class="version">完成版 <span>ステップ 1〜6</span></span>
+  </header>
+  <main class="layout">
+    <aside class="panel" aria-label="操作パネル">
+      <p class="eyebrow">条件を変えて、比べてみる</p>
+      <h2>交差点の実験室。</h2>
+      <p class="description">交通量と信号時間を調整して、車列や待ち時間の変化を観察しましょう。</p>
+      <div class="buttons" aria-label="実行操作">
+        <button id="start" class="primary" type="button" disabled>開始</button>
+        <button id="pause" type="button" disabled>一時停止</button>
+        <button id="resume" type="button" disabled>再開</button>
+        <button id="reset" type="button" disabled>リセット</button>
+      </div>
+      <h3>シミュレーション設定</h3>
+      <div id="parameter-fields"></div>
+      <p id="notice" class="notice" role="status">交通量は東西・南北それぞれ2方向の合計です。</p>
+      <p class="touch-help">交通量・速度は変更後すぐに反映。信号時間は次に始まる各区間から反映します。</p>
+      <details class="help">
+        <summary>視点操作と測定の定義</summary>
+        <p>左ドラッグで回転、ホイールでズーム、右ドラッグで移動。3Dビューにフォーカスすると矢印キーでも移動できます。タッチは1本指で回転、2本指でズーム・移動。</p>
+        <p>待機は停止線に進入する前の秒速0.3m未満の車両です。平均待ち時間は全発生車両の累積停止待ち時間の平均（走行中・待ち時間0秒の車両も含む）。最長待ち時間は1台の累積停止待ち時間の最大値です。</p>
+        <p>最大待ち行列は1方向あたりの待機台数の過去最大。通過は車両の後端が道路端から退出した台数です。場外の進入待ちは発生台数・待ち時間の集計に含めません。</p>
+        <p>全赤の設定時間が終わっても交差点内に車両がある場合は、通過するまで全赤を延長します。黄・赤になる前に停止線へ進入済みの車両は、そのまま退出します。</p>
+        <p>リセットは設定と視点を維持し、同じ乱数の到着列で初めから比較できます。タブが非表示になると自動で一時停止します。</p>
+      </details>
+    </aside>
+    <div class="observation">
+      <section class="signal-strip" aria-label="現在の信号">
+        <div id="signal-EW" class="signal-state" data-color="green"><span class="signal-dot"></span><span>東西方向</span><strong id="color-EW">青</strong></div>
+        <div id="signal-NS" class="signal-state" data-color="red"><span class="signal-dot"></span><span>南北方向</span><strong id="color-NS">赤</strong></div>
+        <div class="phase"><span id="phase-name">東西方向が青</span><strong id="remaining">残り 20.0 秒</strong><div class="phase-track"><div id="phase-fill"></div></div></div>
+      </section>
+      <section class="viewport" aria-label="十字路の3Dビュー">
+        <div class="view-heading"><span id="status-dot" class="dot"></span><span id="status" role="status">3Dシーンを読み込み中…</span><span id="speed-label">1 倍速</span></div>
+        <div id="scene-container"></div>
+        <div class="view-footer"><span>片側1車線・左側通行・直進のみ</span><button id="reset-view" type="button" disabled>↺ 初期の視点に戻す</button></div>
+        <p id="error" class="error" role="alert" hidden></p>
+      </section>
+      <section class="measurements" aria-label="測定結果">
+        <div class="section-heading"><h2>交差点のいま</h2><span>シミュレーション時間で集計</span></div>
+        <div class="metrics">
+          <div class="metric"><span>発生車両数</span><strong id="generated">0 台</strong></div>
+          <div class="metric"><span>通過車両数</span><strong id="passed">0 台</strong></div>
+          <div class="metric"><span>現在の車両数</span><strong id="active">0 台</strong></div>
+          <div class="metric"><span>最大待ち行列（1方向）</span><strong id="maxQueue">0 台</strong></div>
+          <div class="metric accent"><span>平均待ち時間</span><strong id="averageWait">0.0 秒</strong></div>
+          <div class="metric"><span>最長待ち時間</span><strong id="longestWait">0.0 秒</strong></div>
+          <div class="metric"><span>経過時間</span><strong id="elapsed">0 分 00 秒</strong></div>
+          <div class="metric"><span>場外の進入待ち</span><strong id="pending">0 台</strong></div>
+        </div>
+        <div class="queues" aria-label="方向別の待機車両数"><span class="queue-title">方向別の待機</span><span>北 <strong id="queue-north">0 台</strong></span><span>東 <strong id="queue-east">0 台</strong></span><span>南 <strong id="queue-south">0 台</strong></span><span>西 <strong id="queue-west">0 台</strong></span></div>
+      </section>
+    </div>
+  </main>
+  <noscript>シミュレーションを動かすにはJavaScriptを有効にしてください。</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
