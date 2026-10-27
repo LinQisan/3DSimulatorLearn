@@ -23,7 +23,7 @@ export function createUI(simulation, onAction) {
         simulation.setSettings({ [field.key]: Number(input.value) });
         notice('設定を変更しました。信号時間は次に始まる各区間から反映します。');
       } catch (error) {
-        input.value = simulation.settings[field.key];
+        if (finished) input.value = simulation.settings[field.key];
         notice(error.message);
       }
     };
@@ -62,9 +62,17 @@ export function createUI(simulation, onAction) {
     text('remaining', signal.holding ? '安全確認中' : `残り ${decimal.format(Math.max(0, signal.remaining))} 秒`);
     document.querySelector('#phase-fill').style.width = `${signal.duration ? Math.max(0, Math.min(100, signal.remaining / signal.duration * 100)) : 0}%`;
     for (const key of ['generated', 'passed', 'active', 'maxQueue', 'pending']) text(key, `${number.format(stats[key])} 台`);
-    for (const { id } of DIRECTIONS) text(`queue-${id}`, `${number.format(stats.queues[id])} 台`);
+    text('maxSystemQueue', `${number.format(stats.maxSystemQueue)} 台`);
+    text('straight-ratio', `直進 ${number.format(100 - simulation.settings.leftPercent - simulation.settings.rightPercent)}％ ／ 左折 ${number.format(simulation.settings.leftPercent)}％ ／ 右折 ${number.format(simulation.settings.rightPercent)}％`);
+    for (const { id } of DIRECTIONS) {
+      text(`queue-${id}`, `${number.format(stats.queues[id])} 台`);
+      text(`pending-${id}`, `${number.format(stats.pendingByDirection[id])} 台`);
+    }
+    for (const movement of ['straight', 'left', 'right']) text(`passed-${movement}`, `${number.format(stats.passedMovements[movement])} 台`);
     text('averageWait', `${decimal.format(stats.averageWait)} 秒`);
     text('longestWait', `${decimal.format(stats.longestWait)} 秒`);
+    text('systemAverageWait', `${decimal.format(stats.systemAverageWait)} 秒`);
+    text('systemLongestWait', `${decimal.format(stats.systemLongestWait)} 秒`);
     const seconds = Math.floor(stats.time + 1e-8);
     text('elapsed', `${number.format(Math.floor(seconds / 60))} 分 ${String(seconds % 60).padStart(2, '0')} 秒`);
     text('speed-label', `${simulation.settings.speed.toLocaleString('ja-JP')} 倍速`);

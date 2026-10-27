@@ -5,16 +5,21 @@ export const STEP = 1 / 60;
 export const STOP_CENTER = -ROAD.stopDistance - 0.25 - 0.15 - CAR.length / 2;
 export const ENTRY = -ROAD.size / 2 + CAR.length / 2;
 export const EXIT = ROAD.size / 2 + CAR.length / 2;
+// 場外は先頭4台だけを実体表示し、残りは方向別の全台数で示す。
+export const PENDING_SLOTS = 4;
+export const CLEAR_DISTANCE = ROAD.stopDistance + CAR.length / 2 + CAR.gap;
 export const DIRECTIONS = Object.freeze([
   { id: 'north', name: '北', axis: 'NS', angle: 0 },
   { id: 'east', name: '東', axis: 'EW', angle: -Math.PI / 2 },
   { id: 'south', name: '南', axis: 'NS', angle: Math.PI },
   { id: 'west', name: '西', axis: 'EW', angle: Math.PI / 2 },
 ]);
-export const DEFAULTS = Object.freeze({ trafficEW: 24, trafficNS: 24, greenEW: 20, greenNS: 20, yellow: 3, allRed: 2, speed: 1 });
+export const DEFAULTS = Object.freeze({ trafficEW: 24, trafficNS: 24, greenEW: 20, greenNS: 20, yellow: 3, allRed: 2, speed: 1, leftPercent: 20, rightPercent: 20 });
 export const FIELDS = Object.freeze([
   { key: 'trafficEW', label: '東西方向の交通量', unit: '台／分', min: 0, max: 120, step: 1 },
   { key: 'trafficNS', label: '南北方向の交通量', unit: '台／分', min: 0, max: 120, step: 1 },
+  { key: 'leftPercent', label: '左折する車両の割合', unit: '％', min: 0, max: 100, step: 1 },
+  { key: 'rightPercent', label: '右折する車両の割合', unit: '％', min: 0, max: 100, step: 1 },
   { key: 'greenEW', label: '東西方向の青信号時間', unit: '秒', min: 5, max: 120, step: 1 },
   { key: 'greenNS', label: '南北方向の青信号時間', unit: '秒', min: 5, max: 120, step: 1 },
   { key: 'yellow', label: '黄信号時間', unit: '秒', min: 0, max: 10, step: 1 },
@@ -29,5 +34,6 @@ export function validateSettings(settings) {
       throw new RangeError(`${field.label}は${field.min}〜${field.max}${field.unit}で指定してください。`);
     }
   }
+  if (settings.leftPercent + settings.rightPercent > 100) throw new RangeError('左折と右折の割合は、合計100％以下にしてください。');
   return { ...settings };
 }

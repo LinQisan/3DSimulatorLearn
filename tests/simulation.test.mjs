@@ -4,7 +4,8 @@ import { Simulation } from '../js/simulation.js';
 import { SignalController } from '../js/signals.js';
 import { CAR, DEFAULTS, ROAD, STEP, STOP_CENTER } from '../js/config.js';
 
-function make(patch = {}) { return new Simulation({ ...DEFAULTS, ...patch }); }
+// 従来の直進ケースを回帰テストとして残す。
+function make(patch = {}) { return new Simulation({ ...DEFAULTS, leftPercent: 0, rightPercent: 0, ...patch }); }
 function run(simulation, seconds, fps = 60) {
   simulation.start();
   for (let frame = 0; frame < Math.round(seconds * fps); frame++) simulation.advance(1 / fps);
@@ -44,7 +45,7 @@ test('信号時間の変更は進行中の区間を飛ばさず、次の区間�
 test('黄・全赤0秒でも交差点の通過待ちは全赤で保持', () => {
   const simulation = make({ trafficEW: 0, trafficNS: 0, yellow: 0, allRed: 0 });
   const lane = simulation.lanes.find((item) => item.axis === 'EW');
-  lane.cars.push({ id: 1, direction: lane.id, position: 0, previous: 0, speed: 0, wait: 0, committed: true });
+  lane.cars.push({ id: 1, requestId: 1, direction: lane.id, movement: 'straight', position: 0, previous: 0, speed: 0, wait: 0, pendingWait: 0, committed: true });
   simulation.generated = 1;
   simulation.signal.index = 2;
   simulation.signal.remaining = 0;

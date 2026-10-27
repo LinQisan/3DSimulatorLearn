@@ -26,7 +26,7 @@ export function createScene(container) {
   sun.shadow.normalBias = 0.04;
   scene.add(sun);
   scene.add(createRoad());
-  const traffic = createTrafficView(scene);
+  const traffic = createTrafficView(scene, container);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -45,7 +45,7 @@ export function createScene(container) {
   }
   resize();
   // 縦長画面でも交差点が収まるよう、初期のカメラ距離を調整する。
-  camera.position.set(94, 110, 126).multiplyScalar(Math.max(1, 1.15 / camera.aspect));
+  camera.position.set(94, 110, 126).multiplyScalar(1.25 * Math.max(1, 1.15 / camera.aspect));
   controls.target.set(0, 0, 0);
   controls.update();
   controls.saveState();
@@ -57,7 +57,8 @@ export function createScene(container) {
     update(deltaTime, simulation) {
       controls.dampingFactor = 1 - Math.exp(-12 * deltaTime);
       controls.update(deltaTime);
-      traffic.sync(simulation);
+      camera.updateMatrixWorld();
+      traffic.sync(simulation, camera);
     },
     render() { renderer.render(scene, camera); },
     resetView() { controls.reset(); },

@@ -28,9 +28,9 @@ async function main() {
     if (uiElapsed >= 0.1) { ui.render(); uiElapsed = 0; }
     animationId = requestAnimationFrame(animate);
   }
-  ui.render();
   world.update(0, simulation);
   world.render();
+  ui.render();
   animationId = requestAnimationFrame(animate);
 
   // 非表示中は自動で一時停止。再開ボタンで続きを観察できる。

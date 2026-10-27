@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#173d35">
-  <title>十字路の交通信号シミュレーション｜完成版</title>
+  <title>十字路の交通信号シミュレーション｜右左折対応</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css?v=20261027">
+  <link rel="stylesheet" href="style.css?v=turns-1">
   <!-- 本体と追加機能は、同じCDN・同じバージョンに固定する。 -->
   <script type="importmap">
     {
@@ -21,7 +21,7 @@
   <header class="header">
     <span class="brand-icon" aria-hidden="true">╋</span>
     <div><p class="eyebrow">交通のしくみを、立体で観察する</p><h1>十字路シミュレーション</h1></div>
-    <span class="version">完成版 <span>ステップ 1〜6</span></span>
+    <span class="version">右左折対応 <span>交通流モデル</span></span>
   </header>
   <main class="layout">
     <aside class="panel" aria-label="操作パネル">
@@ -36,13 +36,16 @@
       </div>
       <h3>シミュレーション設定</h3>
       <div id="parameter-fields"></div>
+      <p id="straight-ratio" class="turn-summary">直進 60％ ／ 左折 20％ ／ 右折 20％</p>
       <p id="notice" class="notice" role="status">交通量は東西・南北それぞれ2方向の合計です。</p>
-      <p class="touch-help">交通量・速度は変更後すぐに反映。信号時間は次に始まる各区間から反映します。</p>
+      <p class="touch-help">交通量・速度は即時反映。信号時間は次の区間から、右左折の割合は新しい到着車両から反映します。左折・右折の合計は100％以下です。</p>
       <details class="help">
         <summary>視点操作と測定の定義</summary>
         <p>左ドラッグで回転、ホイールでズーム、右ドラッグで移動。3Dビューにフォーカスすると矢印キーでも移動できます。タッチは1本指で回転、2本指でズーム・移動。</p>
         <p>待機は停止線に進入する前の秒速0.3m未満の車両です。平均待ち時間は全発生車両の累積停止待ち時間の平均（走行中・待ち時間0秒の車両も含む）。最長待ち時間は1台の累積停止待ち時間の最大値です。</p>
-        <p>最大待ち行列は1方向あたりの待機台数の過去最大。通過は車両の後端が道路端から退出した台数です。場外の進入待ちは発生台数・待ち時間の集計に含めません。</p>
+        <p>最大待ち行列は1方向の道路内＋場外の過去最大。道路内だけの最大値も併記します。通過は選んだ出口から車体の後端が退出した台数です。場外を含む待ち時間は全到着車両を分母とし、道路内の停止時間に場外の待ち時間を加えて集計します。</p>
+        <p>右折は対向の直進・左折に譲ります。交錯する経路は停止線前で待機し、出口に空きができてから進入します。同じ出口への合流後も車間を保ちます。</p>
+        <p>道路端の淡い車両は実際の場外FIFO待機列の先頭4台です。残りも台数で表示し、進路と到着時刻は入場後へ引き継ぎます。</p>
         <p>全赤の設定時間が終わっても交差点内に車両がある場合は、通過するまで全赤を延長します。黄・赤になる前に停止線へ進入済みの車両は、そのまま退出します。</p>
         <p>リセットは設定と視点を維持し、同じ乱数の到着列で初めから比較できます。タブが非表示になると自動で一時停止します。</p>
       </details>
@@ -56,7 +59,7 @@
       <section class="viewport" aria-label="十字路の3Dビュー">
         <div class="view-heading"><span id="status-dot" class="dot"></span><span id="status" role="status">3Dシーンを読み込み中…</span><span id="speed-label">1 倍速</span></div>
         <div id="scene-container"></div>
-        <div class="view-footer"><span>片側1車線・左側通行・直進のみ</span><button id="reset-view" type="button" disabled>↺ 初期の視点に戻す</button></div>
+        <div class="view-footer"><span>片側1車線・左側通行・右左折対応<br>場外は先頭4台表示＋全待機数</span><button id="reset-view" type="button" disabled>↺ 初期の視点に戻す</button></div>
         <p id="error" class="error" role="alert" hidden></p>
       </section>
       <section class="measurements" aria-label="測定結果">
@@ -65,13 +68,20 @@
           <div class="metric"><span>発生車両数</span><strong id="generated">0 台</strong></div>
           <div class="metric"><span>通過車両数</span><strong id="passed">0 台</strong></div>
           <div class="metric"><span>現在の車両数</span><strong id="active">0 台</strong></div>
-          <div class="metric"><span>最大待ち行列（1方向）</span><strong id="maxQueue">0 台</strong></div>
-          <div class="metric accent"><span>平均待ち時間</span><strong id="averageWait">0.0 秒</strong></div>
-          <div class="metric"><span>最長待ち時間</span><strong id="longestWait">0.0 秒</strong></div>
+          <div class="metric"><span>最大待ち行列（場外含む）</span><strong id="maxSystemQueue">0 台</strong><small>道路内最大 <b id="maxQueue">0 台</b></small></div>
+          <div class="metric accent"><span>平均待ち時間（道路内）</span><strong id="averageWait">0.0 秒</strong><small>場外含む <b id="systemAverageWait">0.0 秒</b></small></div>
+          <div class="metric"><span>最長待ち時間（道路内）</span><strong id="longestWait">0.0 秒</strong><small>場外含む <b id="systemLongestWait">0.0 秒</b></small></div>
           <div class="metric"><span>経過時間</span><strong id="elapsed">0 分 00 秒</strong></div>
           <div class="metric"><span>場外の進入待ち</span><strong id="pending">0 台</strong></div>
         </div>
-        <div class="queues" aria-label="方向別の待機車両数"><span class="queue-title">方向別の待機</span><span>北 <strong id="queue-north">0 台</strong></span><span>東 <strong id="queue-east">0 台</strong></span><span>南 <strong id="queue-south">0 台</strong></span><span>西 <strong id="queue-west">0 台</strong></span></div>
+        <div class="queues-header"><h3>方向別の待機</h3><span>道路内と場外を分けて表示</span></div>
+        <div class="queues" aria-label="方向別の道路内と場外の待機車両数">
+          <div class="direction-queue"><strong>北から</strong><span>道路内 <b id="queue-north">0 台</b></span><span class="pending-row">場外 <b id="pending-north">0 台</b></span></div>
+          <div class="direction-queue"><strong>東から</strong><span>道路内 <b id="queue-east">0 台</b></span><span class="pending-row">場外 <b id="pending-east">0 台</b></span></div>
+          <div class="direction-queue"><strong>南から</strong><span>道路内 <b id="queue-south">0 台</b></span><span class="pending-row">場外 <b id="pending-south">0 台</b></span></div>
+          <div class="direction-queue"><strong>西から</strong><span>道路内 <b id="queue-west">0 台</b></span><span class="pending-row">場外 <b id="pending-west">0 台</b></span></div>
+        </div>
+        <div class="turn-counts" aria-label="進路別の通過台数"><span>通過の内訳</span><span>直進 <b id="passed-straight">0 台</b></span><span>左折 <b id="passed-left">0 台</b></span><span>右折 <b id="passed-right">0 台</b></span></div>
       </section>
     </div>
   </main>

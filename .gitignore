@@ -1,0 +1,13 @@
+# macOSのローカルメタデータ
+.DS_Store
+
+# 配布用に生成したコード一覧と圧縮ファイルは管理しない
+SOURCE_CODE.md
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tgz
+*.7z
+*.rar
